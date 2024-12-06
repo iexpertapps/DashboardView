@@ -14,49 +14,49 @@ struct ContentView: View {
     }
 }
 
-
-import SwiftUI
-import Charts
-
+// MARK: - Dashboard View
 struct DashboardView: View {
     let username = "Zia"
     let activityData = [
-        ActivityData(name: "Swift Basics", count: 10),
-        ActivityData(name: "UI/UX Design", count: 7),
-        ActivityData(name: "Combine Tutorial", count: 5)
+        ActivityData(name: "Swift Basics", count: 10, description: "Learned the basics of Swift programming."),
+        ActivityData(name: "UI/UX Design", count: 7, description: "Worked on user interface and experience designs."),
+        ActivityData(name: "Combine Tutorial", count: 5, description: "Studied Apple's Combine framework.")
     ]
 
     var body: some View {
-        ZStack {
-            // Background Gradient
-            LinearGradient(
-                gradient: Gradient(colors: [Color.blue.opacity(0.8), Color.purple]),
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .ignoresSafeArea()
-            
-            VStack(spacing: 30) {
-                // Header
-                DashboardHeader(username: username)
-                
-                // Metric Cards
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 20) {
-                        MetricCard(title: "Completed", value: "24", icon: "checkmark.circle.fill", gradient: Gradient(colors: [.green, .blue]))
-                        MetricCard(title: "Upcoming", value: "5", icon: "clock.fill", gradient: Gradient(colors: [.orange, .red]))
-                        MetricCard(title: "Messages", value: "12", icon: "message.fill", gradient: Gradient(colors: [.purple, .pink]))
+        NavigationView {
+            ZStack {
+                // Full-screen gradient background
+                LinearGradient(
+                    gradient: Gradient(colors: [Color.blue.opacity(0.8), Color.purple]),
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                .ignoresSafeArea()
+
+                VStack(spacing: 30) {
+                    // Dashboard Header
+                    DashboardHeader(username: username)
+
+                    // Metric Cards
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 20) {
+                            MetricCardLink(title: "Completed", value: "24", icon: "checkmark.circle.fill", gradient: Gradient(colors: [.green, .blue]), activity: activityData[0])
+                            MetricCardLink(title: "Upcoming", value: "5", icon: "clock.fill", gradient: Gradient(colors: [.orange, .red]), activity: activityData[1])
+                            MetricCardLink(title: "Messages", value: "12", icon: "message.fill", gradient: Gradient(colors: [.purple, .pink]), activity: activityData[2])
+                        }
+                        .padding(.horizontal)
+                        .padding(.vertical)
                     }
-                    .padding(.horizontal)
-                    .padding(.vertical)
+
+                    // Recent Activities as a graph
+                    RecentActivityGraph(activityData: activityData)
+
+                    Spacer()
                 }
-                
-                // Recent Activities as Interactive Graph
-                RecentActivityGraph(activityData: activityData)
-                
-                Spacer()
+                .padding(.top, 50)
             }
-            .padding(.top, 50)
+            .navigationBarTitleDisplayMode(.inline)
         }
     }
 }
@@ -83,6 +83,21 @@ struct DashboardHeader: View {
                 .shadow(radius: 10)
         )
         .padding(.horizontal)
+    }
+}
+
+// MARK: - Metric Card Link
+struct MetricCardLink: View {
+    let title: String
+    let value: String
+    let icon: String
+    let gradient: Gradient
+    let activity: ActivityData
+
+    var body: some View {
+        NavigationLink(destination: ActivityDetailView(activity: activity, gradient: gradient)) {
+            MetricCard(title: title, value: value, icon: icon, gradient: gradient)
+        }
     }
 }
 
@@ -121,13 +136,45 @@ struct ActivityData: Identifiable {
     let id = UUID()
     let name: String
     let count: Int
+    let description: String
 }
 
-// MARK: - Recent Activity Graph Component
+// MARK: - Activity Detail View
+struct ActivityDetailView: View {
+    let activity: ActivityData
+    let gradient: Gradient
+
+    var body: some View {
+        ZStack {
+            // Full-screen gradient background
+            LinearGradient(gradient: gradient, startPoint: .topLeading, endPoint: .bottomTrailing)
+                .ignoresSafeArea()
+
+            VStack(spacing: 20) {
+                Text(activity.name)
+                    .font(.largeTitle)
+                    .fontWeight(.bold)
+                    .foregroundColor(.white)
+                Text("Progress: \(activity.count)")
+                    .font(.title2)
+                    .foregroundColor(.white)
+                Text(activity.description)
+                    .font(.body)
+                    .foregroundColor(.white)
+                    .multilineTextAlignment(.center)
+                    .padding()
+                Spacer()
+            }
+            .padding()
+        }
+        .navigationTitle("Activity Details")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+// MARK: - Recent Activity Graph
 struct RecentActivityGraph: View {
     let activityData: [ActivityData]
-    @State private var selectedActivity: ActivityData? // Tracks selected activity for tooltip
-    @State private var showTooltip: Bool = false // Controls tooltip visibility
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -137,67 +184,21 @@ struct RecentActivityGraph: View {
                 .foregroundColor(.white)
                 .padding(.horizontal)
 
-            GeometryReader { geometry in
-                ZStack {
-                    // Chart with gesture recognizer
-                    Chart(activityData) { activity in
-                        BarMark(
-                            x: .value("Activity", activity.name),
-                            y: .value("Count", activity.count)
-                        )
-                        .foregroundStyle(Gradient(colors: [.blue, .green]))
-                    }
-                    .frame(height: 200)
-                    .padding()
-                    .background(
-                        RoundedRectangle(cornerRadius: 15)
-                            .fill(Color.white.opacity(0.2))
-                            .shadow(radius: 10)
-                    )
-                    .padding(.horizontal)
-                    .onTapGesture { location in
-                        // Get the tapped point and map it to the chart data
-                        let tappedIndex = Int(location.x / (geometry.size.width / CGFloat(activityData.count)))
-                        if tappedIndex >= 0 && tappedIndex < activityData.count {
-                            withAnimation {
-                                selectedActivity = activityData[tappedIndex]
-                                showTooltip = true
-
-                                // Hide the tooltip after 0.5 seconds
-                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                                    withAnimation {
-                                        showTooltip = false
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    // Tooltip
-                    if showTooltip, let activity = selectedActivity {
-                        VStack(spacing: 8) {
-                            Text("Activity: \(activity.name)")
-                                .font(.headline)
-                                .foregroundColor(.white)
-                            Text("Progress: \(activity.count)")
-                                .font(.subheadline)
-                                .foregroundColor(.white.opacity(0.8))
-                        }
-                        .padding()
-                        .background(Color.black.opacity(0.8))
-                        .cornerRadius(10)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 10)
-                                .stroke(Color.white.opacity(0.5), lineWidth: 1)
-                        )
-                        .position(
-                            // Tooltip placement logic
-                            x: UIScreen.main.bounds.width / 2,
-                            y: 150
-                        )
-                    }
-                }
+            Chart(activityData) { activity in
+                BarMark(
+                    x: .value("Activity", activity.name),
+                    y: .value("Count", activity.count)
+                )
+                .foregroundStyle(Gradient(colors: [.blue, .green]))
             }
+            .frame(height: 200)
+            .padding()
+            .background(
+                RoundedRectangle(cornerRadius: 15)
+                    .fill(Color.white.opacity(0.2))
+                    .shadow(radius: 10)
+            )
+            .padding(.horizontal)
         }
     }
 }
